@@ -1,7 +1,7 @@
 local aimbotEnabled = false
 local aimbotToggleKey = Enum.KeyCode.E -- Key to toggle aimbot
 local aimbotFOV = 1000 -- Full circle FOV for rage aimbot
-local aimbotMaxRange = 25
+local aimbotMaxRange = 50
 
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")

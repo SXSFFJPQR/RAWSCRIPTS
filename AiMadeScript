@@ -1,0 +1,232 @@
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local Mouse = Player:GetMouse()
+local RunService = game:GetService("RunService")
+
+-- UI setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CommandBarGui"
+ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 300, 0, 50)
+Frame.Position = UDim2.new(1, -320, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BackgroundTransparency = 0.5
+Frame.Parent = ScreenGui
+
+local TextBox = Instance.new("TextBox")
+TextBox.Size = UDim2.new(1, -20, 1, -10)
+TextBox.Position = UDim2.new(0, 10, 0, 5)
+TextBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.ClearTextOnFocus = false
+TextBox.Font = Enum.Font.SourceSans
+TextBox.TextSize = 20
+TextBox.Text = ""
+TextBox.Parent = Frame
+
+local SubmitButton = Instance.new("TextButton")
+SubmitButton.Size = UDim2.new(0, 50, 1, 0)
+SubmitButton.Position = UDim2.new(1, -60, 0, 0)
+SubmitButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SubmitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+SubmitButton.Text = "Go"
+SubmitButton.Font = Enum.Font.SourceSans
+SubmitButton.TextSize = 18
+SubmitButton.Parent = Frame
+
+-- Keybind Storage
+local keybinds = {}
+local toggleKeybinds = {}
+local keybindState = {}
+local hideKeybind = nil
+local isCommandBarVisible = true
+
+-- Flight Variables
+local isFlying = false
+local flySpeed = 50
+local flyBodyVelocity = nil
+local flyBodyGyro = nil
+
+-- Function to start flying
+local function startFlying()
+    local character = Player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+    flyBodyVelocity = Instance.new("BodyVelocity")
+    flyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    flyBodyVelocity.Parent = humanoidRootPart
+
+    flyBodyGyro = Instance.new("BodyGyro")
+    flyBodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    flyBodyGyro.CFrame = humanoidRootPart.CFrame
+    flyBodyGyro.Parent = humanoidRootPart
+
+    isFlying = true
+
+    -- Flight movement loop
+    RunService.RenderStepped:Connect(function()
+        if not isFlying then return end
+        local direction = Vector3.new(0, 0, 0)
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + (workspace.CurrentCamera.CFrame.LookVector * flySpeed)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - (workspace.CurrentCamera.CFrame.LookVector * flySpeed)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - (workspace.CurrentCamera.CFrame.RightVector * flySpeed)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + (workspace.CurrentCamera.CFrame.RightVector * flySpeed)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + Vector3.new(0, flySpeed, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            direction = direction - Vector3.new(0, flySpeed, 0)
+        end
+
+        flyBodyVelocity.Velocity = direction
+        flyBodyGyro.CFrame = workspace.CurrentCamera.CFrame
+    end)
+end
+
+-- Function to stop flying
+local function stopFlying()
+    isFlying = false
+    if flyBodyVelocity then flyBodyVelocity:Destroy() end
+    if flyBodyGyro then flyBodyGyro:Destroy() end
+end
+
+-- Commands
+local commands = {
+    ["walkspeed"] = function(value)
+        local speed = tonumber(value)
+        if speed and speed > 0 then
+            Player.Character:WaitForChild("Humanoid").WalkSpeed = speed
+        end
+    end,
+
+    ["jumpheight"] = function(value)
+        local jumpHeight = tonumber(value)
+        if jumpHeight and jumpHeight > 0 then
+            Player.Character:WaitForChild("Humanoid").JumpHeight = jumpHeight
+        end
+    end,
+
+    ["fly"] = function()
+        if isFlying then
+            stopFlying()
+        else
+            startFlying()
+        end
+    end,
+
+    ["teleport"] = function()
+        local character = Player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+            local target = Mouse.Target
+
+            if target then
+                local targetPosition = Mouse.Hit.Position
+                humanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 5, 0))
+            end
+        end
+    end,
+
+    ["setkeybind"] = function(key, command)
+        key = Enum.KeyCode[key:upper()]
+        if key and commands[command] then
+            keybinds[key] = command
+        end
+    end,
+
+    ["settogglekeybind"] = function(key, command)
+        key = Enum.KeyCode[key:upper()]
+        if key and commands[command] then
+            toggleKeybinds[key] = command
+            keybindState[key] = false
+        end
+    end,
+
+    ["sethidekeybind"] = function(key)
+        hideKeybind = Enum.KeyCode[key:upper()]
+    end
+}
+
+-- Execute Command
+local function executeCommand(command)
+    local args = {}
+    for word in command:gmatch("%S+") do
+        table.insert(args, word)
+    end
+
+    local cmd = table.remove(args, 1):lower()
+    local value = table.concat(args, " ")
+
+    if commands[cmd] then
+        commands[cmd](value)
+    end
+end
+
+-- Toggle Command Execution
+local function toggleCommand(key)
+    local command = toggleKeybinds[key]
+    if command then
+        if keybindState[key] then
+            if command == "fly" then
+                commands["fly"]()
+            end
+        else
+            commands[command]()
+        end
+        keybindState[key] = not keybindState[key]
+    end
+end
+
+-- Toggle Visibility of Command Bar
+local function toggleCommandBarVisibility()
+    if hideKeybind then
+        isCommandBarVisible = not isCommandBarVisible
+        Frame.Visible = isCommandBarVisible
+    end
+end
+
+-- Handle Key Input
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if keybinds[input.KeyCode] then
+        executeCommand(keybinds[input.KeyCode])
+    end
+
+    if toggleKeybinds[input.KeyCode] then
+        toggleCommand(input.KeyCode)
+    end
+
+    if input.KeyCode == hideKeybind then
+        toggleCommandBarVisibility()
+    end
+end)
+
+SubmitButton.MouseButton1Click:Connect(function()
+    if TextBox.Text ~= "" then
+        executeCommand(TextBox.Text)
+        TextBox.Text = ""
+    end
+end)
+
+TextBox.FocusLost:Connect(function()
+    if TextBox.Text ~= "" then
+        executeCommand(TextBox.Text)
+        TextBox.Text = ""
+    end
+end)

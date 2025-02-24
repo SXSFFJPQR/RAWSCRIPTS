@@ -1,0 +1,32 @@
+-- Hold Z and click to tp to your mouse
+print("Hello, World!")-- Hold Z and click to teleport to mouse
+local Player = game.Players.LocalPlayer
+local Mouse = Player:GetMouse()
+local InputService = game:GetService("UserInputService")
+
+local function Teleport(position)
+    local Character = Player.Character or Player.CharacterAdded:Wait()
+    local RootPart = Character:WaitForChild("HumanoidRootPart")
+    RootPart.CFrame = CFrame.new(position + Vector3.new(0, 3, 0))
+end
+
+InputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Z then
+        CtrlHeld = true
+    end
+end)
+
+InputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Z then
+        CtrlHeld = false
+    end
+end)
+
+Mouse.Button1Down:Connect(function()
+    if CtrlHeld then
+        local Target = Mouse.Hit
+        if Target then
+            Teleport(Target.p)
+        end
+    end
+end)
